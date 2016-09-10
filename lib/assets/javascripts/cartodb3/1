@@ -2,13 +2,13 @@ var $ = require('jquery');
 var _ = require('underscore');
 var nodeIds = require('../value-objects/analysis-node-ids');
 var MetricsTracker = require('../components/metrics/metrics-tracker');
-var SimpleStyleDefaults = require('../editor/style/style-defaults/simple-style-defaults');
 var camshaftReference = require('./camshaft-reference');
 var layerTypesAndKinds = require('./layer-types-and-kinds');
 var layerColors = require('./layer-colors');
 
+   
 
-
+  
 
 
 
@@ -243,7 +243,7 @@ module.exports = function (params) {
      * @param {object} [options]
      * @param {number} [options.at]
      */
-    createLayerForTable: function (tableName, tableGeometry, options) {
+    createLayerForTable: function (tableName, options) {
       options = options || {};
 
       // Setting at assumes there to be at least one non-basemap layer
@@ -275,13 +275,6 @@ module.exports = function (params) {
       attrs.letter = newLetter;
       attrs.options.table_name = tableName;
       attrs.options.query = 'SELECT * FROM ' + tableName;
-
-      if (tableGeometry) {
-        attrs.options.style_properties = {
-          type: 'simple',
-          properties: SimpleStyleDefaults.generateAttributes(tableGeometry)
-        };
-      }
 
       return layerDefinitionsCollection.create(attrs, {
         wait: true,
@@ -626,10 +619,9 @@ module.exports = function (params) {
         analysisDefinitionsCollection.saveAnalysisForLayer(parentLayer);
       }
 
-      // Ge the rest of the layers on the map
       var dataLayers = [];
       layerDefinitionsCollection.each(function (ly) {
-        if (ly.isDataLayer()) { // Check if it is a data layer
+        if (ly.isDataLayer()) {
           dataLayers.push(ly);
         }
       });
@@ -640,11 +632,10 @@ module.exports = function (params) {
       };
 
       dataLayers.forEach(function (ly, i) {
-        var newLetter = String.fromCharCode(97 + i); // Get the new leter from the start
+        var newLetter = String.fromCharCode(97 + i);
 
-        if (ly.get('letter') === newLetter) return; // If the layer already has the letter jump to the next
+        if (ly.get('letter') === newLetter) return;
 
-        // Create a new layer with the correct letter
         var tableName = ly.get('table_name');
         var tableNameAlias = ly.get('table_name_alias');
         var attrs = createDefaultCartoDBAttrs();
@@ -658,13 +649,10 @@ module.exports = function (params) {
           source: newLetter + 0
         });
 
-        // Add the layer to the collection in the correct position.
         var newLayerDefModel = layerDefinitionsCollection.add(attrs, {at: ly.get('order') - 1});
 
-        var ownedNodes = ly.ownedPrimaryAnalysisNodes(); // Get the nodes of the layer
-        // NOTE: is this the correct way to get all the child nodes?
+        var ownedNodes = ly.ownedPrimaryAnalysisNodes();
 
-        // Clone the nodes with a new Id.
         ownedNodes.forEach(function (node, j) {
           var newId = nodeIds.changeLetter(node.id, newLetter);
           var clone = node.clone(newId);
@@ -677,26 +665,30 @@ module.exports = function (params) {
             }
           }
 
-          node.destroy(); // Destroy old nodes
+          node.destroy();
 
-          analysisDefinitionNodesCollection.remove(node); // Remove node from analysis nodes collection
+          analysisDefinitionNodesCollection.remove(node);
 
-          analysisDefinitionsCollection.newAnalysisForNode(clone); // Create new analysis for node
+          analysisDefinitionsCollection.newAnalysisForNode(clone);
         });
 
 
         analysisDefinitionsCollection.saveAnalysisForLayer(newLayerDefModel);
 
-        newLayerDefModel.save(null, { // Save the layer and resetstyles
+        newLayerDefModel.save(null, {
           success: function () {
             onNewLayerSaved(newLayerDefModel);
           }
         });
 
-        ly.destroy(); // Destroy old layer
+        ly.destroy();
 
-        layerDefinitionsCollection.remove(ly); // Remove old layer from the collection
-        // NOTE: is it necessary?
+        layerDefinitionsCollection.remove(ly);
+
+        // ly.save({id: 'a0', source: String.fromCharCode(97 + i) + 0, letter: String.fromCharCode(97 + i)});
+        // ly.set('letter', String.fromCharCode(97 + i));
+        // ly.set('source', String.fromCharCode(97 + i) + 0);
+        console.log(ly.attributes.letter);
       });
 
       deleteOrphanedAnalyses();
